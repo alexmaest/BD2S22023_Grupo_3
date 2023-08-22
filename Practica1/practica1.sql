@@ -181,7 +181,173 @@ CREATE TABLE BD2.practica1.UsuarioRole (
 CREATE NONCLUSTERED INDEX IX_UsuarioRole_RoleId ON BD2.practica1.UsuarioRole (RoleId);
 CREATE NONCLUSTERED INDEX IX_UsuarioRole_UserId ON BD2.practica1.UsuarioRole (UserId);
 
-CREATE FUNCTION F5()
+CREATE PROCEDURE practica1.PR1
+	@Firstname		VARCHAR(60),
+	@Lastname		VARCHAR(60),
+	@Email			VARCHAR(60),
+	@DateOfBirth	DATETIME2,
+	@Password		VARCHAR(60),
+	@Credits		INT
+AS
+BEGIN
+	BEGIN TRY
+		BEGIN TRANSACTION
+	
+		-- Validación del primer nombre
+		IF LEN(@Firstname) = 0 OR @Firstname LIKE '%[0-9]%'
+		BEGIN
+			SELECT 'El Nombre no es válido.' AS Error;
+			RETURN;
+		END
+
+		-- Validación del apellido
+		IF LEN(@Lastname) = 0 OR @Lastname LIKE '%[0-9]%'
+		BEGIN
+			SELECT 'El Apellido no es válido.' AS Error;
+			RETURN;
+		END
+		
+		-- Validación del email
+		IF @Email IS NULL OR @Email NOT LIKE '%_@__%.__%'
+		BEGIN
+			SELECT 'El email no es válido.' AS Error;
+			RETURN;
+		END
+		
+		-- Validación de los créditos
+		IF @Credits IS NULL
+		BEGIN
+			SELECT 'Los créditos no son válidos.' AS Error;
+			RETURN;
+		END
+		
+		-- Validación del correo repetido
+		IF EXISTS (SELECT 1 FROM practica1.Usuarios WHERE Email = @Email)
+		BEGIN
+			SELECT 'El correo ya está registrado.' AS Error;
+			RETURN;
+		END
+
+		-- Si todas las validaciones han sido exitosas, realizar las inserciones
+		DECLARE @UserId NVARCHAR(36) = NEWID();
+
+		-- Configuración de fecha y hora de Guatemala
+		DECLARE @GuatemalaTime DATETIMEOFFSET;
+		SET @GuatemalaTime = SWITCHOFFSET(SYSDATETIMEOFFSET(), '-06:00');
+	
+		-- Insertar en la tabla Usuarios
+		INSERT INTO practica1.Usuarios (Id, Firstname, Lastname, Email, DateOfBirth, Password, LastChanges, EmailConfirmed)
+		VALUES (@UserId, @Firstname, @Lastname, @Email, @DateOfBirth, @Password, @GuatemalaTime, 1);
+
+		-- Insertar en la tabla Notification
+		INSERT INTO practica1.Notification (UserId, Message, Date)
+		VALUES (@UserId, 'Bienvenido, has sido registrado', @GuatemalaTime);
+
+		-- Insertar en la tabla UsuarioRole
+		INSERT INTO practica1.UsuarioRole (RoleId, UserId, IsLatestVersion)
+		VALUES ('F4E6D8FB-DF45-4C91-9794-38E043FD5ACD', @UserId, 1);
+
+		-- Insertar en la tabla ProfileStudent
+		INSERT INTO practica1.ProfileStudent (UserId, Credits)
+		VALUES (@UserId, @Credits);
+
+		-- Insertar en la tabla TFA
+		INSERT INTO practica1.TFA (UserId, Status, LastUpdate)
+		VALUES (@UserId, 0, @GuatemalaTime);
+
+		SELECT 'Successful!' AS Success;
+
+		COMMIT TRANSACTION
+	END TRY
+
+	BEGIN CATCH
+		SELECT 'Ha ocurrido un error al registrar un usuario.' AS Error;
+		ROLLBACK TRANSACTION
+	END CATCH
+END;
+
+CREATE PROCEDURE practica1.PR2
+	@Email			NVARCHAR(60),
+	@CodCourse		INT
+AS
+BEGIN
+	BEGIN TRY
+		BEGIN TRANSACTION
+	
+		-- Validación del email
+		IF @Email IS NULL OR @Email NOT LIKE '%_@__%.__%'
+		BEGIN
+			SELECT 'El email no es válido.' AS Error;
+			RETURN;
+		END
+		
+		-- Validación de los créditos
+		IF @CodCourse IS NULL
+		BEGIN
+			SELECT 'El código de curso no es válido.' AS Error;
+			RETURN;
+		END
+		
+		-- Validación que exista el correo
+		IF NOT EXISTS (SELECT 1 FROM practica1.Usuarios WHERE Email = @Email)
+		BEGIN
+			SELECT 'El correo no existe.' AS Error;
+			RETURN;
+		END
+
+		-- Validación que exista el curso
+		IF NOT EXISTS (SELECT 1 FROM practica1.Course WHERE CodCourse = @CodCourse)
+		BEGIN
+			SELECT 'El curso no existe.' AS Error;
+			RETURN;
+		END
+
+		-- Obtener UserId asociado al correo
+		DECLARE @UserId UNIQUEIDENTIFIER;
+		SELECT @UserId = Id FROM practica1.Usuarios WHERE Email = @Email;
+
+		-- Validación que no tenga ya asignado el curso como tutor
+		IF EXISTS (SELECT 1 FROM practica1.UsuarioRole WHERE RoleId = '2CF8E1CF-3CD6-44F3-8F86-1386B7C17657' AND UserId = @UserId)
+		BEGIN
+			SELECT 'El usuario ya tiene asignado este curso como tutor.' AS Error;
+			RETURN;
+		END
+
+		-- Configuración de fecha y hora de Guatemala
+		DECLARE @GuatemalaTime DATETIMEOFFSET;
+		SET @GuatemalaTime = SWITCHOFFSET(SYSDATETIMEOFFSET(), '-06:00');
+
+		-- Insertar en las tablas TutorProfile y CourseTutor
+		DECLARE @TutorCode NVARCHAR(50);
+		SET @TutorCode = CONCAT('TUTOR_', NEWID());
+
+		INSERT INTO practica1.TutorProfile (UserId, TutorCode)
+		VALUES (@UserId, @TutorCode);
+
+		-- Insertar en la tabla CourseTutor
+		INSERT INTO practica1.CourseTutor (TutorId, CourseCodCourse)
+		VALUES (@UserId, @CodCourse);
+
+		-- Insertar en la tabla UsuarioRole
+		INSERT INTO practica1.UsuarioRole (RoleId, UserId, IsLatestVersion)
+		VALUES ('2CF8E1CF-3CD6-44F3-8F86-1386B7C17657', @UserId, 1);
+
+		-- Insertar en la tabla Notificacion
+		INSERT INTO practica1.Notification (UserId, Message, Date)
+		VALUES (@UserId, 'Felicitaciones, ahora también tienes el rol de tutor', @GuatemalaTime);
+
+		SELECT 'Successful!' AS Success;
+
+		COMMIT TRANSACTION
+	END TRY
+
+	BEGIN CATCH
+		SELECT 'Ha ocurrido un error al cambiar de rol al estudiante.' AS Error;
+		ROLLBACK TRANSACTION
+	END CATCH
+END;
+
+CREATE FUNCTION practica1.F5(@Email NVARCHAR(100))
 RETURNS TABLE
 AS
 RETURN
@@ -201,10 +367,21 @@ RETURN
         UsuarioRole UR ON U.Id = UR.UserId
     INNER JOIN
         Roles R ON UR.RoleId = R.Id
-)
+    WHERE
+        U.Email = @Email
+);
 
+-- Not ready, pending questions
 CREATE TRIGGER Trigger1
-ON DATABASE
+ON  practica1.Usuarios, 
+	practica1.UsuarioRole, 
+	practica1.TutorProfile, 
+	practica1.TFA, 
+	practica1.ProfileStudent, 
+	practica1.Notification, 
+	practica1.CourseTutor, 
+	practica1.CourseAssignment, 
+	practica1.Course
 AFTER INSERT, UPDATE, DELETE
 AS
 BEGIN
