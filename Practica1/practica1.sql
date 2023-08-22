@@ -295,6 +295,13 @@ BEGIN
 			RETURN;
 		END
 
+		-- Validación que la cuenta esté activa
+		IF NOT EXISTS (SELECT 1 FROM practica1.Usuarios WHERE Email = @Email AND EmailConfirmed = 1)
+		BEGIN
+			SELECT 'La cuenta no se encuentra activa.' AS Error;
+			RETURN;
+		END
+
 		-- Validación que exista el curso
 		IF NOT EXISTS (SELECT 1 FROM practica1.Course WHERE CodCourse = @CodCourse)
 		BEGIN
@@ -307,7 +314,7 @@ BEGIN
 		SELECT @UserId = Id FROM practica1.Usuarios WHERE Email = @Email;
 
 		-- Validación que no tenga ya asignado el curso como tutor
-		IF EXISTS (SELECT 1 FROM practica1.UsuarioRole WHERE RoleId = '2CF8E1CF-3CD6-44F3-8F86-1386B7C17657' AND UserId = @UserId)
+		IF EXISTS (SELECT 1 FROM practica1.CourseTutor WHERE TutorId = @UserId AND CourseCodCourse = @CodCourse)
 		BEGIN
 			SELECT 'El usuario ya tiene asignado este curso como tutor.' AS Error;
 			RETURN;
@@ -317,16 +324,20 @@ BEGIN
 		DECLARE @GuatemalaTime DATETIMEOFFSET;
 		SET @GuatemalaTime = SWITCHOFFSET(SYSDATETIMEOFFSET(), '-06:00');
 
-		-- Insertar en las tablas TutorProfile y CourseTutor
-		DECLARE @TutorCode NVARCHAR(50);
-		SET @TutorCode = CONCAT('TUTOR_', NEWID());
-
-		INSERT INTO practica1.TutorProfile (UserId, TutorCode)
-		VALUES (@UserId, @TutorCode);
-
 		-- Insertar en la tabla CourseTutor
 		INSERT INTO practica1.CourseTutor (TutorId, CourseCodCourse)
 		VALUES (@UserId, @CodCourse);
+
+		-- Obtener el Id insertado
+		DECLARE @TutorIdInserted INT;
+		SET @TutorIdInserted = SCOPE_IDENTITY();
+
+		-- Insertar en la tabla TutorProfile
+		INSERT INTO practica1.TutorProfile (UserId, TutorCode)
+		VALUES (@UserId, @TutorIdInserted);
+
+		-- Actualizar roles a última versión
+		UPDATE practica1.UsuarioRole SET IsLatestVersion = 0 WHERE UserId = @UserId;
 
 		-- Insertar en la tabla UsuarioRole
 		INSERT INTO practica1.UsuarioRole (RoleId, UserId, IsLatestVersion)
@@ -347,7 +358,7 @@ BEGIN
 	END CATCH
 END;
 
-CREATE FUNCTION practica1.F5(@Email NVARCHAR(100))
+CREATE FUNCTION practica1.F5(@UserId NVARCHAR(100))
 RETURNS TABLE
 AS
 RETURN
@@ -368,20 +379,11 @@ RETURN
     INNER JOIN
         Roles R ON UR.RoleId = R.Id
     WHERE
-        U.Email = @Email
+        U.Id = @UserId
 );
 
--- Not ready, pending questions
-CREATE TRIGGER Trigger1
-ON  practica1.Usuarios, 
-	practica1.UsuarioRole, 
-	practica1.TutorProfile, 
-	practica1.TFA, 
-	practica1.ProfileStudent, 
-	practica1.Notification, 
-	practica1.CourseTutor, 
-	practica1.CourseAssignment, 
-	practica1.Course
+CREATE TRIGGER Trigger_Usuarios
+ON practica1.Usuarios
 AFTER INSERT, UPDATE, DELETE
 AS
 BEGIN
@@ -389,15 +391,236 @@ BEGIN
     DECLARE @Operation AS VARCHAR(10);
     DECLARE @TableName AS VARCHAR(MAX);
     
-    SET @TableName = OBJECT_NAME(@@PROCID);
-
     IF EXISTS (SELECT * FROM inserted)
-        SET @Operation = 'INSERT';
+    BEGIN
+        IF EXISTS (SELECT * FROM deleted)
+            SET @Operation = 'UPDATE';
+        ELSE
+            SET @Operation = 'INSERT';
+    END
     ELSE IF EXISTS (SELECT * FROM deleted)
         SET @Operation = 'DELETE';
-    ELSE
-        SET @Operation = 'UPDATE';
+	
+	-- Configuración de fecha y hora de Guatemala
+	DECLARE @GuatemalaTime DATETIMEOFFSET;
+	SET @GuatemalaTime = SWITCHOFFSET(SYSDATETIMEOFFSET(), '-06:00');
     
-    SET @Message = 'Se realizó un ' + @Operation + ' en la tabla ' + @TableName;
-    INSERT INTO practica1.HistoryLog([Date], Description) VALUES(GETDATE(), @Message);
+    SET @Message = 'Se realizó un ' + @Operation + ' en la tabla Usuarios';
+    INSERT INTO practica1.HistoryLog([Date], Description) VALUES(@GuatemalaTime, @Message);
+END;
+
+CREATE TRIGGER Trigger_UsuarioRole
+ON practica1.UsuarioRole
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    DECLARE @Message AS VARCHAR(MAX);
+    DECLARE @Operation AS VARCHAR(10);
+    DECLARE @TableName AS VARCHAR(MAX);
+    
+    IF EXISTS (SELECT * FROM inserted)
+    BEGIN
+        IF EXISTS (SELECT * FROM deleted)
+            SET @Operation = 'UPDATE';
+        ELSE
+            SET @Operation = 'INSERT';
+    END
+    ELSE IF EXISTS (SELECT * FROM deleted)
+        SET @Operation = 'DELETE';
+	
+	-- Configuración de fecha y hora de Guatemala
+	DECLARE @GuatemalaTime DATETIMEOFFSET;
+	SET @GuatemalaTime = SWITCHOFFSET(SYSDATETIMEOFFSET(), '-06:00');
+    
+    SET @Message = 'Se realizó un ' + @Operation + ' en la tabla UsuarioRole';
+    INSERT INTO practica1.HistoryLog([Date], Description) VALUES(@GuatemalaTime, @Message);
+END;
+
+CREATE TRIGGER Trigger_TutorProfile
+ON practica1.TutorProfile
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    DECLARE @Message AS VARCHAR(MAX);
+    DECLARE @Operation AS VARCHAR(10);
+    DECLARE @TableName AS VARCHAR(MAX);
+    
+    IF EXISTS (SELECT * FROM inserted)
+    BEGIN
+        IF EXISTS (SELECT * FROM deleted)
+            SET @Operation = 'UPDATE';
+        ELSE
+            SET @Operation = 'INSERT';
+    END
+    ELSE IF EXISTS (SELECT * FROM deleted)
+        SET @Operation = 'DELETE';
+	
+	-- Configuración de fecha y hora de Guatemala
+	DECLARE @GuatemalaTime DATETIMEOFFSET;
+	SET @GuatemalaTime = SWITCHOFFSET(SYSDATETIMEOFFSET(), '-06:00');
+    
+    SET @Message = 'Se realizó un ' + @Operation + ' en la tabla TutorProfile';
+    INSERT INTO practica1.HistoryLog([Date], Description) VALUES(@GuatemalaTime, @Message);
+END;
+
+CREATE TRIGGER Trigger_TFA
+ON practica1.TFA
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    DECLARE @Message AS VARCHAR(MAX);
+    DECLARE @Operation AS VARCHAR(10);
+    DECLARE @TableName AS VARCHAR(MAX);
+    
+    IF EXISTS (SELECT * FROM inserted)
+    BEGIN
+        IF EXISTS (SELECT * FROM deleted)
+            SET @Operation = 'UPDATE';
+        ELSE
+            SET @Operation = 'INSERT';
+    END
+    ELSE IF EXISTS (SELECT * FROM deleted)
+        SET @Operation = 'DELETE';
+	
+	-- Configuración de fecha y hora de Guatemala
+	DECLARE @GuatemalaTime DATETIMEOFFSET;
+	SET @GuatemalaTime = SWITCHOFFSET(SYSDATETIMEOFFSET(), '-06:00');
+    
+    SET @Message = 'Se realizó un ' + @Operation + ' en la tabla TFA';
+    INSERT INTO practica1.HistoryLog([Date], Description) VALUES(@GuatemalaTime, @Message);
+END;
+
+CREATE TRIGGER Trigger_ProfileStudent
+ON practica1.ProfileStudent
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    DECLARE @Message AS VARCHAR(MAX);
+    DECLARE @Operation AS VARCHAR(10);
+    DECLARE @TableName AS VARCHAR(MAX);
+    
+    IF EXISTS (SELECT * FROM inserted)
+    BEGIN
+        IF EXISTS (SELECT * FROM deleted)
+            SET @Operation = 'UPDATE';
+        ELSE
+            SET @Operation = 'INSERT';
+    END
+    ELSE IF EXISTS (SELECT * FROM deleted)
+        SET @Operation = 'DELETE';
+	
+	-- Configuración de fecha y hora de Guatemala
+	DECLARE @GuatemalaTime DATETIMEOFFSET;
+	SET @GuatemalaTime = SWITCHOFFSET(SYSDATETIMEOFFSET(), '-06:00');
+    
+    SET @Message = 'Se realizó un ' + @Operation + ' en la tabla ProfileStudent';
+    INSERT INTO practica1.HistoryLog([Date], Description) VALUES(@GuatemalaTime, @Message);
+END;
+
+CREATE TRIGGER Trigger_Notification
+ON practica1.Notification
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    DECLARE @Message AS VARCHAR(MAX);
+    DECLARE @Operation AS VARCHAR(10);
+    DECLARE @TableName AS VARCHAR(MAX);
+    
+    IF EXISTS (SELECT * FROM inserted)
+    BEGIN
+        IF EXISTS (SELECT * FROM deleted)
+            SET @Operation = 'UPDATE';
+        ELSE
+            SET @Operation = 'INSERT';
+    END
+    ELSE IF EXISTS (SELECT * FROM deleted)
+        SET @Operation = 'DELETE';
+	
+	-- Configuración de fecha y hora de Guatemala
+	DECLARE @GuatemalaTime DATETIMEOFFSET;
+	SET @GuatemalaTime = SWITCHOFFSET(SYSDATETIMEOFFSET(), '-06:00');
+    
+    SET @Message = 'Se realizó un ' + @Operation + ' en la tabla Notification';
+    INSERT INTO practica1.HistoryLog([Date], Description) VALUES(@GuatemalaTime, @Message);
+END;
+
+CREATE TRIGGER Trigger_CourseTutor
+ON practica1.CourseTutor
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    DECLARE @Message AS VARCHAR(MAX);
+    DECLARE @Operation AS VARCHAR(10);
+    DECLARE @TableName AS VARCHAR(MAX);
+    
+    IF EXISTS (SELECT * FROM inserted)
+    BEGIN
+        IF EXISTS (SELECT * FROM deleted)
+            SET @Operation = 'UPDATE';
+        ELSE
+            SET @Operation = 'INSERT';
+    END
+    ELSE IF EXISTS (SELECT * FROM deleted)
+        SET @Operation = 'DELETE';
+	
+	-- Configuración de fecha y hora de Guatemala
+	DECLARE @GuatemalaTime DATETIMEOFFSET;
+	SET @GuatemalaTime = SWITCHOFFSET(SYSDATETIMEOFFSET(), '-06:00');
+    
+    SET @Message = 'Se realizó un ' + @Operation + ' en la tabla CourseTutor';
+    INSERT INTO practica1.HistoryLog([Date], Description) VALUES(@GuatemalaTime, @Message);
+END;
+
+CREATE TRIGGER Trigger_CourseAssignment
+ON practica1.CourseAssignment
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    DECLARE @Message AS VARCHAR(MAX);
+    DECLARE @Operation AS VARCHAR(10);
+    DECLARE @TableName AS VARCHAR(MAX);
+    
+    IF EXISTS (SELECT * FROM inserted)
+    BEGIN
+        IF EXISTS (SELECT * FROM deleted)
+            SET @Operation = 'UPDATE';
+        ELSE
+            SET @Operation = 'INSERT';
+    END
+    ELSE IF EXISTS (SELECT * FROM deleted)
+        SET @Operation = 'DELETE';
+	
+	-- Configuración de fecha y hora de Guatemala
+	DECLARE @GuatemalaTime DATETIMEOFFSET;
+	SET @GuatemalaTime = SWITCHOFFSET(SYSDATETIMEOFFSET(), '-06:00');
+    
+    SET @Message = 'Se realizó un ' + @Operation + ' en la tabla CourseAssignment';
+    INSERT INTO practica1.HistoryLog([Date], Description) VALUES(@GuatemalaTime, @Message);
+END;
+
+CREATE TRIGGER Trigger_Course
+ON practica1.Course
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    DECLARE @Message AS VARCHAR(MAX);
+    DECLARE @Operation AS VARCHAR(10);
+    DECLARE @TableName AS VARCHAR(MAX);
+    
+    IF EXISTS (SELECT * FROM inserted)
+    BEGIN
+        IF EXISTS (SELECT * FROM deleted)
+            SET @Operation = 'UPDATE';
+        ELSE
+            SET @Operation = 'INSERT';
+    END
+    ELSE IF EXISTS (SELECT * FROM deleted)
+        SET @Operation = 'DELETE';
+	
+	-- Configuración de fecha y hora de Guatemala
+	DECLARE @GuatemalaTime DATETIMEOFFSET;
+	SET @GuatemalaTime = SWITCHOFFSET(SYSDATETIMEOFFSET(), '-06:00');
+    
+    SET @Message = 'Se realizó un ' + @Operation + ' en la tabla Course';
+    INSERT INTO practica1.HistoryLog([Date], Description) VALUES(@GuatemalaTime, @Message);
 END;
