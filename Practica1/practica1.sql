@@ -368,6 +368,63 @@ BEGIN
 	END CATCH
 END;
 
+CREATE PROCEDURE practica1.PR3
+    @Email NVARCHAR(100),
+    @CodCurse INT
+AS
+BEGIN
+    -- Obtener el Student Id
+    DECLARE @StudentId uniqueidentifier
+
+    SELECT @StudentId = Id
+    FROM practica1.Usuarios
+    WHERE Email = @Email
+
+    IF @StudentId IS NULL
+    BEGIN
+        SELECT 'No se encuentra el estudiante' AS Error;
+        RETURN
+    END
+
+    -- Validación del email
+    IF @Email IS NULL OR @Email NOT LIKE '%_@__%.__%'
+    BEGIN
+        SELECT N'El email no es válido.' AS Error;
+        RETURN;
+    END
+    ELSE
+    BEGIN
+        -- Insertar el registro en la entidad CorseAssignment
+        INSERT INTO practica1.CourseAssignment
+        VALUES (@StudentId, @CodCurse)
+    end
+end
+
+CREATE PROCEDURE practica1.PR4
+    @RoleName NVARCHAR(100)
+AS
+BEGIN
+    -- Validación del rol
+    IF @RoleName IS NULL OR @RoleName NOT IN ('Student', 'Tutor')
+    BEGIN
+        SELECT N'El rol no es válido.' AS Error;
+        RETURN;
+    END
+    ELSE
+        -- Validación que el rol no exista
+        IF EXISTS (SELECT * FROM practica1.Roles WHERE RoleName = @RoleName)
+        BEGIN
+            SELECT N'El rol ya existe.' AS Error;
+            RETURN;
+        END
+    BEGIN
+        DECLARE @Id uniqueidentifier
+        -- Insertar el registro en la entidad Roles
+        INSERT INTO practica1.Roles
+        VALUES (@Id, @RoleName)
+    end
+end
+
 CREATE PROCEDURE practica1.PR5
 	@CodCurso INT,
     @Nombre NVARCHAR(MAX),
@@ -463,6 +520,27 @@ BEGIN
 		SET @EsValido = 0;
 	END CATCH
 END;
+
+CREATE FUNCTION practica1.F1
+    (@CodCurse INT)
+RETURNS TABLE
+AS
+RETURN
+    SELECT u.Id AS 'Id estudiante', u.FirstName AS 'Nombre', u.LastName AS 'Apellido', u.Email AS 'Correo'
+    FROM practica1.Usuarios u
+    INNER JOIN practica1.CourseAssignment ca ON u.Id = ca.StudentId
+    WHERE ca.CourseCodCourse = @CodCurse
+
+CREATE FUNCTION practica1.F2
+    (@IdTutorProfile INT)
+RETURNS TABLE
+AS
+RETURN
+    SELECT c.CodCourse AS 'Codigo Curso', c.Name AS 'Nombre del curso', c.CreditsRequired AS 'Creditos requeridos'
+    FROM practica1.Course c
+    INNER JOIN practica1.CourseTutor ct ON c.CodCourse = ct.CourseCodCourse
+    WHERE ct.TutorId = @IdTutorProfile
+
 
 CREATE FUNCTION practica1.F3(@id UNIQUEIDENTIFIER)
 RETURNS TABLE
