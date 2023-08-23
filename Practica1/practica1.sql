@@ -373,56 +373,111 @@ CREATE PROCEDURE practica1.PR3
     @CodCurse INT
 AS
 BEGIN
-    -- Obtener el Student Id
-    DECLARE @StudentId uniqueidentifier
 
-    SELECT @StudentId = Id
-    FROM practica1.Usuarios
-    WHERE Email = @Email
+    BEGIN TRY
+    -- Iniciar la transacción
+        BEGIN TRANSACTION;
 
-    IF @StudentId IS NULL
-    BEGIN
-        SELECT 'No se encuentra el estudiante' AS Error;
-        RETURN
-    END
+            -- Obtener el Student Id
+            DECLARE @StudentId uniqueidentifier;
 
-    -- Validación del email
-    IF @Email IS NULL OR @Email NOT LIKE '%_@__%.__%'
-    BEGIN
-        SELECT N'El email no es válido.' AS Error;
-        RETURN;
-    END
-    ELSE
-    BEGIN
-        -- Insertar el registro en la entidad CorseAssignment
-        INSERT INTO practica1.CourseAssignment
-        VALUES (@StudentId, @CodCurse)
-    end
-end
+            SELECT @StudentId = Id
+            FROM practica1.Usuarios
+            WHERE Email = @Email;
+
+            IF @StudentId IS NULL
+            BEGIN
+                SELECT 'No se encuentra el estudiante' AS Error;
+                ROLLBACK TRANSACTION; -- Deshacer la transacción
+                RETURN;
+            END
+
+            -- Validar que el curso exista
+
+            IF NOT EXISTS (
+                SELECT 1
+                FROM practica1.Course
+                WHERE CodCourse = @CodCurse
+            )
+                BEGIN
+                    select 'El curso no existe' AS Error;
+                    rollback transaction; -- Deshacer la transacción
+                    return;
+                end
+
+            -- Validar que el estudiante no esté inscrito en el curso
+            IF EXISTS (
+                SELECT 1
+                FROM practica1.CourseAssignment
+                WHERE StudentId = @StudentId AND CourseCodCourse = @CodCurse
+            )
+                BEGIN
+                    SELECT N'El estudiante ya está inscrito en el curso' AS Error;
+                    ROLLBACK TRANSACTION; -- Deshacer la transacción
+                    RETURN;
+                end
+
+            -- Validación del email
+            IF @Email IS NULL OR @Email NOT LIKE '%_@__%.__%'
+            BEGIN
+                SELECT N'El email no es válido.' AS Error;
+                ROLLBACK TRANSACTION; -- Deshacer la transacción
+                RETURN;
+            END
+
+            -- Insertar el registro en la entidad CorseAssignment
+            INSERT INTO practica1.CourseAssignment
+            VALUES (@StudentId, @CodCurse);
+
+            SELECT 'Estudiante asignado correctamente' AS Success;
+
+            -- Confirmar la transacción
+            COMMIT TRANSACTION;
+    END TRY
+
+    BEGIN CATCH
+        SELECT 'Ha ocurrido un error al asignar al estudiante.' AS Error;
+		ROLLBACK TRANSACTION
+    end catch
+END;
 
 CREATE PROCEDURE practica1.PR4
     @RoleName NVARCHAR(100)
 AS
 BEGIN
-    -- Validación del rol
-    IF @RoleName IS NULL OR @RoleName NOT IN ('Student', 'Tutor')
-    BEGIN
-        SELECT N'El rol no es válido.' AS Error;
-        RETURN;
-    END
-    ELSE
+    BEGIN TRY
+        begin transaction;
+        -- Validación del rol
+        IF @RoleName IS NULL OR @RoleName NOT IN ('Student', 'Tutor')
+        BEGIN
+            SELECT N'El rol no es válido.' AS Error;
+            rollback transaction;
+            RETURN;
+        END
+
         -- Validación que el rol no exista
         IF EXISTS (SELECT * FROM practica1.Roles WHERE RoleName = @RoleName)
         BEGIN
             SELECT N'El rol ya existe.' AS Error;
+            rollback transaction;
             RETURN;
         END
-    BEGIN
+
         DECLARE @Id uniqueidentifier
         -- Insertar el registro en la entidad Roles
         INSERT INTO practica1.Roles
         VALUES (@Id, @RoleName)
-    end
+        select 'El rol se ha creado correctamente.' as Success;
+
+        commit transaction;
+
+
+    END TRY
+    begin catch
+        select 'Ha ocurrido un error al crear el rol.' as Error;
+        rollback transaction;
+    end catch
+
 end
 
 CREATE PROCEDURE practica1.PR5
