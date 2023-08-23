@@ -228,6 +228,16 @@ BEGIN
 			RETURN;
 		END
 
+		-- Utilizar PR6 para validar los datos
+		DECLARE @DatosValidos BIT;
+
+		EXEC practica1.PR6 'Usuarios', @Firstname, @Lastname, NULL, NULL, @DatosValidos OUTPUT;
+		IF(@DatosValidos = 0)
+		BEGIN
+			SELECT 'ERROR// Los atributos ingresados no son validos.' AS Error;
+			RETURN;
+		END
+
 		-- Si todas las validaciones han sido exitosas, realizar las inserciones
 		DECLARE @UserId NVARCHAR(36) = NEWID();
 
@@ -357,6 +367,124 @@ BEGIN
 		ROLLBACK TRANSACTION
 	END CATCH
 END;
+
+CREATE PROCEDURE practica1.PR5
+	@CodCurso INT,
+    @Nombre NVARCHAR(MAX),
+    @CreditosRequeridos INT
+AS
+BEGIN
+	BEGIN TRY
+
+		SET NOCOUNT ON;
+		DECLARE @idCurso INT;
+		DECLARE @DatosValidos BIT;
+
+		EXEC practica1.PR6 'Course', NULL, NULL, @Nombre, @CreditosRequeridos, @DatosValidos OUTPUT;
+		IF(@DatosValidos = 0)
+		BEGIN
+			SELECT 'ERROR// Los atributos ingresados no son validos.' AS Error;
+			RETURN;
+		END
+
+		-- VALIDAR QUE EL NOMBRE NO ESTE VACÍO
+		IF(@Nombre IS NULL OR @Nombre='')
+		BEGIN
+			SELECT 'ERROR// El nombre no puede ser una cadena vacía.' AS Error;
+			RETURN;
+		END
+
+		-- VALIDAR QUE EL CODIGO Y LOS CREDITOS SEAN POSITIVOS
+		IF(@CreditosRequeridos < 0 OR @CodCurso < 0)
+		BEGIN
+			SELECT 'ERROR// La cantidad de créditos y el código no pueden ser negativos.' AS Error;
+			RETURN;
+		END
+
+		-- VALIDAR QUE EL CODIGO DEL CURSO NO EXISTA
+		SELECT @idCurso = CodCourse FROM practica1.Course WHERE CodCourse = @CodCurso;
+		IF(@idCurso IS NOT NULL)
+		BEGIN
+			SELECT 'ERROR// El codigo del curso ya existe.' AS Error;
+			RETURN;
+		END
+
+		-- REALIZAMOS LA INSERCION
+		INSERT INTO practica1.Course (CodCourse, Name, CreditsRequired)
+		VALUES (@CodCurso, @Nombre, @CreditosRequeridos);
+
+		SELECT 'Curso insertado correctamente.' AS Success;
+
+	END TRY
+
+	BEGIN CATCH
+		SELECT 'Ha ocurrido un error al crear un nuevo curso' AS Error;
+		ROLLBACK TRANSACTION
+	END CATCH
+END;
+
+CREATE PROCEDURE practica1.PR6
+	@NombreTabla NVARCHAR(50),
+	@FirstName NVARCHAR(255) = NULL,
+	@LastName NVARCHAR(255) = NULL,
+	@Name NVARCHAR(255) = NULL,
+	@CreditsRequired INT = NULL,
+	@EsValido BIT OUTPUT
+AS
+BEGIN
+	BEGIN TRY
+		SET NOCOUNT ON;
+
+		IF @NombreTabla = 'Usuarios'
+		BEGIN
+			-- Se verifica que FirstName y LastName solo tengan letras y espacio
+			IF ISNULL(@FirstName, '') NOT LIKE '%[^a-zA-Z ]%' AND ISNULL(@LastName, '') NOT LIKE '%[^a-zA-Z ]%'
+				SET @EsValido = 1;
+			ELSE
+				SET @EsValido = 0;
+		END
+
+		ELSE IF @NombreTabla = 'Course'
+		BEGIN
+			-- Se verifica que Name solo tenga letras y CreditsRequired solo tenga numeros.
+			IF ISNULL(@Name, '') NOT LIKE '%[^a-zA-Z ]%' AND ISNUMERIC(@CreditsRequired) = 1
+				SET @EsValido = 1;
+			ELSE
+				SET @EsValido = 0;
+		END
+
+		ELSE
+		BEGIN
+			SET @EsValido = 0;
+		END;
+	END TRY
+
+	BEGIN CATCH
+		SET @EsValido = 0;
+	END CATCH
+END;
+
+CREATE FUNCTION practica1.F3(@id UNIQUEIDENTIFIER)
+RETURNS TABLE
+AS
+RETURN
+(
+	SELECT
+		N.Id,
+		N.Message,
+		N.Date
+	FROM
+		practica1.Notification N
+	WHERE N.UserId = @id
+);
+
+CREATE FUNCTION practica1.F4()
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT * FROM practica1.HistoryLog
+);
 
 CREATE FUNCTION practica1.F5(@UserId NVARCHAR(100))
 RETURNS TABLE
