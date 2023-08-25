@@ -373,10 +373,17 @@ CREATE PROCEDURE practica1.PR3
     @CodCurse INT
 AS
 BEGIN
+    SET NOCOUNT ON;
 
     BEGIN TRY
     -- Iniciar la transacción
         BEGIN TRANSACTION;
+
+            -- Validación del email
+            IF @Email IS NULL OR @Email NOT LIKE '%_@__%.__%'
+            BEGIN
+                throw 50000, N'El email no es válido.', 1;
+            END
 
             -- Obtener el Student Id
             DECLARE @StudentId uniqueidentifier;
@@ -387,9 +394,7 @@ BEGIN
 
             IF @StudentId IS NULL
             BEGIN
-                SELECT 'No se encuentra el estudiante' AS Error;
-                ROLLBACK TRANSACTION; -- Deshacer la transacción
-                RETURN;
+                THROW 50000, 'No se encuentra el estudiante', 1;
             END
 
             -- Validar que el curso exista
@@ -400,9 +405,7 @@ BEGIN
                 WHERE CodCourse = @CodCurse
             )
                 BEGIN
-                    select 'El curso no existe' AS Error;
-                    rollback transaction; -- Deshacer la transacción
-                    return;
+                    throw 50000, 'El curso no existe', 1;
                 end
 
             -- Validar que el estudiante no esté inscrito en el curso
@@ -412,18 +415,8 @@ BEGIN
                 WHERE StudentId = @StudentId AND CourseCodCourse = @CodCurse
             )
                 BEGIN
-                    SELECT N'El estudiante ya está inscrito en el curso' AS Error;
-                    ROLLBACK TRANSACTION; -- Deshacer la transacción
-                    RETURN;
+                    throw 50000, N'El estudiante ya está inscrito en el curso', 1;
                 end
-
-            -- Validación del email
-            IF @Email IS NULL OR @Email NOT LIKE '%_@__%.__%'
-            BEGIN
-                SELECT N'El email no es válido.' AS Error;
-                ROLLBACK TRANSACTION; -- Deshacer la transacción
-                RETURN;
-            END
 
             -- Insertar el registro en la entidad CorseAssignment
             INSERT INTO practica1.CourseAssignment
@@ -435,9 +428,13 @@ BEGIN
             COMMIT TRANSACTION;
     END TRY
 
-    BEGIN CATCH
-        SELECT 'Ha ocurrido un error al asignar al estudiante.' AS Error;
-		ROLLBACK TRANSACTION
+    begin catch
+        -- Revertir la transacción
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
+        -- Lanzar el error
+        THROW;
     end catch
 END;
 
@@ -445,22 +442,20 @@ CREATE PROCEDURE practica1.PR4
     @RoleName NVARCHAR(100)
 AS
 BEGIN
+    SET NOCOUNT ON;
+
     BEGIN TRY
         begin transaction;
         -- Validación del rol
         IF @RoleName IS NULL OR @RoleName NOT IN ('Student', 'Tutor')
         BEGIN
-            SELECT N'El rol no es válido.' AS Error;
-            rollback transaction;
-            RETURN;
+            throw 50000, N'El rol no es válido.', 1;
         END
 
         -- Validación que el rol no exista
         IF EXISTS (SELECT * FROM practica1.Roles WHERE RoleName = @RoleName)
         BEGIN
-            SELECT N'El rol ya existe.' AS Error;
-            rollback transaction;
-            RETURN;
+            throw 50000, N'El rol ya existe.', 1;
         END
 
         DECLARE @Id uniqueidentifier
@@ -474,8 +469,12 @@ BEGIN
 
     END TRY
     begin catch
-        select 'Ha ocurrido un error al crear el rol.' as Error;
-        rollback transaction;
+        -- Revertir la transacción
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
+        -- Lanzar el error
+        THROW;
     end catch
 
 end
