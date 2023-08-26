@@ -407,6 +407,33 @@ BEGIN
 
             SELECT 'Estudiante asignado correctamente' AS Success;
 
+            -- Notificarle al estudiante que se ha inscrito en el curso
+
+            INSERT INTO practica1.Notification
+            VALUES (
+                @StudentId,
+                'El estudiante ' + @Email + ' se ha inscrito en el curso ' + CAST(@CodCurse AS NVARCHAR(10)),
+                GETDATE()
+            );
+
+            -- Notificarle al profesor que un estudiante se ha inscrito en su curso, si el curso tiene profesor
+
+            DECLARE @TutorId uniqueidentifier;
+
+            SELECT @TutorId = TutorId
+                FROM practica1.CourseTutor ct
+                WHERE ct.CourseCodCourse = @CodCurse;
+
+            IF @TutorId IS NOT NULL
+            BEGIN
+                INSERT INTO practica1.Notification
+                VALUES (
+                    @TutorId,
+                    'El estudiante ' + @Email + ' se ha inscrito en el curso ' + CAST(@CodCurse AS NVARCHAR(10)),
+                    GETDATE()
+                );
+            END
+
             -- Confirmar la transacción
             COMMIT TRANSACTION;
     END TRY
@@ -429,10 +456,10 @@ BEGIN
 
     BEGIN TRY
         begin transaction;
-        -- Validación del rol
-        IF @RoleName IS NULL OR @RoleName NOT IN ('Student', 'Tutor')
+        -- Validación de que el nombre del rol no sea nulo
+        IF @RoleName IS NULL
         BEGIN
-            throw 50000, N'El rol no es válido.', 1;
+            throw 50000, N'El nombre del rol no puede ser nulo.', 1;
         END
 
         -- Validación que el rol no exista
@@ -460,7 +487,7 @@ BEGIN
         THROW;
     end catch
 
-end
+end;
 
 CREATE PROCEDURE practica1.PR5
 	@CodCurso INT,
