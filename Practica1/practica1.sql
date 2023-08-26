@@ -500,15 +500,7 @@ BEGIN
 	BEGIN TRANSACTION;
 	BEGIN TRY
 		DECLARE @idCurso INT;
-		DECLARE @DatosValidos BIT;
 		DECLARE @ErrorMessage NVARCHAR(4000);
-
-		EXEC practica1.PR6 'Course', NULL, NULL, @Nombre, @CreditosRequeridos, @DatosValidos OUTPUT;
-		IF(@DatosValidos = 0)
-		BEGIN
-			 SET @ErrorMessage = 'ERROR// Los atributos ingresados no son validos.';
-            THROW 50000, @ErrorMessage, 1;
-		END
 
 		-- VALIDAR QUE EL NOMBRE NO ESTE VACÍO
 		IF(@Nombre IS NULL OR @Nombre='')
@@ -551,44 +543,124 @@ BEGIN
 END;
 
 CREATE PROCEDURE practica1.PR6
-	@NombreTabla NVARCHAR(50),
-	@FirstName NVARCHAR(255) = NULL,
-	@LastName NVARCHAR(255) = NULL,
-	@Name NVARCHAR(255) = NULL,
-	@CreditsRequired INT = NULL,
-	@EsValido BIT OUTPUT
 AS
 BEGIN
+    SET NOCOUNT ON;
 	BEGIN TRY
-		SET NOCOUNT ON;
+		BEGIN TRANSACTION
 
-		IF @NombreTabla = 'Usuarios'
-		BEGIN
-			-- Se verifica que FirstName y LastName solo tengan letras y espacio
-			IF ISNULL(@FirstName, '') NOT LIKE '%[^a-zA-Z ]%' AND ISNULL(@LastName, '') NOT LIKE '%[^a-zA-Z ]%'
-				SET @EsValido = 1;
-			ELSE
-				SET @EsValido = 0;
-		END
+		-- Agregar restricción para validar que FirstName en Usuarios sean solo letras
+		ALTER TABLE practica1.Usuarios WITH NOCHECK
+		ADD CONSTRAINT CK_first_name_only_letters CHECK (Firstname NOT LIKE '%[^a-zA-Z ]%');
 
-		ELSE IF @NombreTabla = 'Course'
-		BEGIN
-			-- Se verifica que Name solo tenga letras y CreditsRequired solo tenga numeros.
-			IF ISNULL(@Name, '') NOT LIKE '%[^a-zA-Z ]%' AND ISNUMERIC(@CreditsRequired) = 1
-				SET @EsValido = 1;
-			ELSE
-				SET @EsValido = 0;
-		END
+		-- Identificar los registros que no cumplen con la restricción
+		DECLARE @InvalidUsers TABLE (Id UNIQUEIDENTIFIER, InvalidFirstName NVARCHAR(MAX));
+		INSERT INTO @InvalidUsers (Id, InvalidFirstName)
+		SELECT Id, Firstname
+		FROM practica1.Usuarios
+		WHERE Firstname LIKE '%[^a-zA-Z ]%';
 
-		ELSE
-		BEGIN
-			SET @EsValido = 0;
-		END;
+		-- Actualizar los registros con nombres no válidos
+		UPDATE practica1.Usuarios
+		SET Firstname = practica1.RemoverDigitos(Firstname)
+		WHERE Id IN (SELECT Id FROM @InvalidUsers);
+
+		-- ////////////////////////////////////////////////////////////////////////////////////
+		-- Restriccion para validar que LastName en Usuarios sean solo letras
+		ALTER TABLE practica1.Usuarios WITH NOCHECK
+		ADD CONSTRAINT CK_last_name_only_letters CHECK (Lastname NOT LIKE '%[^a-zA-Z ]%');
+
+		-- Identificar los registros que no cumplen con la restricción
+		DECLARE @InvalidUsers2 TABLE (Id UNIQUEIDENTIFIER, InvalidLastName NVARCHAR(MAX));
+		INSERT INTO @InvalidUsers2 (Id, InvalidLastName)
+		SELECT Id, Lastname
+		FROM practica1.Usuarios
+		WHERE Lastname LIKE '%[^a-zA-Z ]%';
+
+		-- Actualizar los registros con nombres no válidos
+		UPDATE practica1.Usuarios
+		SET Lastname = practica1.RemoverDigitos(Lastname)
+		WHERE Id IN (SELECT Id FROM @InvalidUsers2);
+
+		-- ////////////////////////////////////////////////////////////////////////////////////
+		-- Agregar restricción para validar que Name en Course sea solo letras
+		ALTER TABLE practica1.Course WITH NOCHECK
+		ADD CONSTRAINT CK_course_name_only_letters CHECK (Name NOT LIKE '%[^a-zA-Z ]%');
+
+		-- Identificar los registros que no cumplen con la restricción
+		DECLARE @InvalidCourses TABLE (CodCourse INT, InvalidName NVARCHAR(MAX));
+		INSERT INTO @InvalidCourses (CodCourse, InvalidName)
+		SELECT CodCourse, Name
+		FROM practica1.Course
+		WHERE Name LIKE '%[^a-zA-Z ]%';
+
+		-- Actualizar los registros con nombres no válidos
+		UPDATE practica1.Course
+		SET Name = practica1.RemoverDigitos(Name)
+		WHERE CodCourse IN (SELECT CodCourse FROM @InvalidCourses);
+
+		-- ////////////////////////////////////////////////////////////////////////////////////
+		-- Agregar restricción para validar que CreditsRequired en Course sean solo números
+		ALTER TABLE practica1.Course WITH NOCHECK
+		ADD CONSTRAINT CK_course_credits_only_numbers CHECK (CreditsRequired LIKE '[0-9]%');
+
+		-- Identificar los registros que no cumplen con la restricción de números en CreditsRequired
+		DECLARE @InvalidCoursesCredits TABLE (CodCourse INT, InvalidCredits NVARCHAR(MAX));
+		INSERT INTO @InvalidCoursesCredits (CodCourse, InvalidCredits)
+		SELECT CodCourse, CreditsRequired
+		FROM practica1.Course
+		WHERE CAST(CreditsRequired AS NVARCHAR(MAX)) LIKE '%[^0-9]%';
+
+		-- Actualizar los registros con valores no válidos (eliminar caracteres no numéricos)
+		UPDATE practica1.Course
+		SET CreditsRequired = REPLACE(CreditsRequired, SUBSTRING(CAST(CreditsRequired AS NVARCHAR(MAX)), PATINDEX('%[^0-9]%', CAST(CreditsRequired AS NVARCHAR(MAX))), 1), '')
+		WHERE CodCourse IN (SELECT CodCourse FROM @InvalidCoursesCredits);
+
+		-- ////////////////////////////////////////////////////////////////////////////////////
+
+		DBCC CHECKCONSTRAINTS WITH ALL_CONSTRAINTS;
+
+		ALTER TABLE practica1.Usuarios
+		DROP CONSTRAINT CK_first_name_only_letters;
+
+		ALTER TABLE practica1.Usuarios
+		DROP CONSTRAINT CK_last_name_only_letters;
+
+		ALTER TABLE practica1.Course
+		DROP CONSTRAINT CK_course_name_only_letters;
+
+		ALTER TABLE practica1.Course
+		DROP CONSTRAINT CK_course_credits_only_numbers;
+
+		COMMIT TRANSACTION
 	END TRY
-
 	BEGIN CATCH
-		SET @EsValido = 0;
+		IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+        THROW;
 	END CATCH
+	
+END;
+
+CREATE FUNCTION practica1.RemoverDigitos (@InputString NVARCHAR(MAX))
+RETURNS NVARCHAR(MAX)
+AS
+BEGIN
+    DECLARE @OutputString NVARCHAR(MAX)
+    SET @OutputString = ''
+
+    DECLARE @Index INT
+    SET @Index = 1
+
+    WHILE @Index <= LEN(@InputString)
+    BEGIN
+        IF SUBSTRING(@InputString, @Index, 1) NOT LIKE '[0-9]'
+            SET @OutputString = @OutputString + SUBSTRING(@InputString, @Index, 1)
+        
+        SET @Index = @Index + 1
+    END
+
+    RETURN @OutputString
 END;
 
 CREATE FUNCTION practica1.F1
