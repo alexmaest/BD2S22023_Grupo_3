@@ -190,52 +190,38 @@ CREATE PROCEDURE practica1.PR1
 	@Credits		INT
 AS
 BEGIN
+	SET NOCOUNT ON;
 	BEGIN TRY
 		BEGIN TRANSACTION
 	
 		-- Validación del primer nombre
 		IF LEN(@Firstname) = 0 OR @Firstname LIKE '%[0-9]%'
 		BEGIN
-			SELECT 'El Nombre no es válido.' AS Error;
-			RETURN;
+			THROW 50000, 'El nombre no es válido', 1;
 		END
 
 		-- Validación del apellido
 		IF LEN(@Lastname) = 0 OR @Lastname LIKE '%[0-9]%'
 		BEGIN
-			SELECT 'El Apellido no es válido.' AS Error;
-			RETURN;
+			THROW 50000, 'El apellido no es válido', 1;
 		END
 		
 		-- Validación del email
 		IF @Email IS NULL OR @Email NOT LIKE '%_@__%.__%'
 		BEGIN
-			SELECT 'El email no es válido.' AS Error;
-			RETURN;
+			THROW 50000, 'El email no es válido', 1;
 		END
 		
 		-- Validación de los créditos
 		IF @Credits IS NULL
 		BEGIN
-			SELECT 'Los créditos no son válidos.' AS Error;
-			RETURN;
+			THROW 50000, 'Los créditos no son válidos', 1;
 		END
 		
 		-- Validación del correo repetido
 		IF EXISTS (SELECT 1 FROM practica1.Usuarios WHERE Email = @Email)
 		BEGIN
-			SELECT 'El correo ya está registrado.' AS Error;
-			RETURN;
-		END
-
-		-- Utilizar PR6 para validar los datos
-		DECLARE @DatosValidos BIT;
-
-		EXEC practica1.PR6 'Usuarios', @Firstname, @Lastname, NULL, NULL, @DatosValidos OUTPUT;
-		IF(@DatosValidos = 0)
-		BEGIN
-			SELECT 'ERROR// Los atributos ingresados no son validos.' AS Error;
-			RETURN;
+			THROW 50000, 'El correo ya está registrado', 1;
 		END
 
 		-- Si todas las validaciones han sido exitosas, realizar las inserciones
@@ -265,14 +251,15 @@ BEGIN
 		INSERT INTO practica1.TFA (UserId, Status, LastUpdate)
 		VALUES (@UserId, 0, @GuatemalaTime);
 
-		SELECT 'Successful!' AS Success;
+		SELECT 'El usuario ha sido creado' AS Success;
 
 		COMMIT TRANSACTION
 	END TRY
 
 	BEGIN CATCH
-		SELECT 'Ha ocurrido un error al registrar un usuario.' AS Error;
-		ROLLBACK TRANSACTION
+		IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+        THROW;
 	END CATCH
 END;
 
@@ -281,42 +268,38 @@ CREATE PROCEDURE practica1.PR2
 	@CodCourse		INT
 AS
 BEGIN
+	SET NOCOUNT ON;
 	BEGIN TRY
 		BEGIN TRANSACTION
 	
 		-- Validación del email
 		IF @Email IS NULL OR @Email NOT LIKE '%_@__%.__%'
 		BEGIN
-			SELECT 'El email no es válido.' AS Error;
-			RETURN;
+			THROW 50000, 'El email no es válido', 1;
 		END
 		
 		-- Validación de los créditos
 		IF @CodCourse IS NULL
 		BEGIN
-			SELECT 'El código de curso no es válido.' AS Error;
-			RETURN;
+			THROW 50000, 'El código de curso no es válido', 1;
 		END
 		
 		-- Validación que exista el correo
 		IF NOT EXISTS (SELECT 1 FROM practica1.Usuarios WHERE Email = @Email)
 		BEGIN
-			SELECT 'El correo no existe.' AS Error;
-			RETURN;
+			THROW 50000, 'El correo no existe', 1;
 		END
 
 		-- Validación que la cuenta esté activa
 		IF NOT EXISTS (SELECT 1 FROM practica1.Usuarios WHERE Email = @Email AND EmailConfirmed = 1)
 		BEGIN
-			SELECT 'La cuenta no se encuentra activa.' AS Error;
-			RETURN;
+			THROW 50000, 'La cuenta no se encuentra activa', 1;
 		END
 
 		-- Validación que exista el curso
 		IF NOT EXISTS (SELECT 1 FROM practica1.Course WHERE CodCourse = @CodCourse)
 		BEGIN
-			SELECT 'El curso no existe.' AS Error;
-			RETURN;
+			THROW 50000, 'El curso no existe', 1;
 		END
 
 		-- Obtener UserId asociado al correo
@@ -326,8 +309,7 @@ BEGIN
 		-- Validación que no tenga ya asignado el curso como tutor
 		IF EXISTS (SELECT 1 FROM practica1.CourseTutor WHERE TutorId = @UserId AND CourseCodCourse = @CodCourse)
 		BEGIN
-			SELECT 'El usuario ya tiene asignado este curso como tutor.' AS Error;
-			RETURN;
+			THROW 50000, 'El usuario ya tiene asignado este curso como tutor', 1;
 		END
 
 		-- Configuración de fecha y hora de Guatemala
@@ -357,14 +339,15 @@ BEGIN
 		INSERT INTO practica1.Notification (UserId, Message, Date)
 		VALUES (@UserId, 'Felicitaciones, ahora también tienes el rol de tutor', @GuatemalaTime);
 
-		SELECT 'Successful!' AS Success;
+		SELECT 'Se ha agregado un nuevo rol al usuario' AS Success;
 
 		COMMIT TRANSACTION
 	END TRY
 
 	BEGIN CATCH
-		SELECT 'Ha ocurrido un error al cambiar de rol al estudiante.' AS Error;
-		ROLLBACK TRANSACTION
+		IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+        THROW;
 	END CATCH
 END;
 
