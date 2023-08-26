@@ -468,39 +468,41 @@ CREATE PROCEDURE practica1.PR5
     @CreditosRequeridos INT
 AS
 BEGIN
+	SET NOCOUNT ON;
+	-- Iniciar la transacción
+	BEGIN TRANSACTION;
 	BEGIN TRY
-
-		SET NOCOUNT ON;
 		DECLARE @idCurso INT;
 		DECLARE @DatosValidos BIT;
+		DECLARE @ErrorMessage NVARCHAR(4000);
 
 		EXEC practica1.PR6 'Course', NULL, NULL, @Nombre, @CreditosRequeridos, @DatosValidos OUTPUT;
 		IF(@DatosValidos = 0)
 		BEGIN
-			SELECT 'ERROR// Los atributos ingresados no son validos.' AS Error;
-			RETURN;
+			 SET @ErrorMessage = 'ERROR// Los atributos ingresados no son validos.';
+            THROW 50000, @ErrorMessage, 1;
 		END
 
 		-- VALIDAR QUE EL NOMBRE NO ESTE VACÍO
 		IF(@Nombre IS NULL OR @Nombre='')
 		BEGIN
-			SELECT 'ERROR// El nombre no puede ser una cadena vacía.' AS Error;
-			RETURN;
+			SET @ErrorMessage = 'ERROR// El nombre no puede ser una cadena vacía.';
+            THROW 50000, @ErrorMessage, 1;
 		END
 
 		-- VALIDAR QUE EL CODIGO Y LOS CREDITOS SEAN POSITIVOS
 		IF(@CreditosRequeridos < 0 OR @CodCurso < 0)
 		BEGIN
-			SELECT 'ERROR// La cantidad de créditos y el código no pueden ser negativos.' AS Error;
-			RETURN;
+			SET @ErrorMessage = 'ERROR// La cantidad de créditos y el código no pueden ser negativos.';
+            THROW 50000, @ErrorMessage, 1;
 		END
 
 		-- VALIDAR QUE EL CODIGO DEL CURSO NO EXISTA
 		SELECT @idCurso = CodCourse FROM practica1.Course WHERE CodCourse = @CodCurso;
 		IF(@idCurso IS NOT NULL)
 		BEGIN
-			SELECT 'ERROR// El codigo del curso ya existe.' AS Error;
-			RETURN;
+			SET @ErrorMessage = 'ERROR// El codigo del curso ya existe.';
+            THROW 50000, @ErrorMessage, 1;
 		END
 
 		-- REALIZAMOS LA INSERCION
@@ -509,11 +511,15 @@ BEGIN
 
 		SELECT 'Curso insertado correctamente.' AS Success;
 
+		COMMIT TRANSACTION;
+
 	END TRY
 
 	BEGIN CATCH
-		SELECT 'Ha ocurrido un error al crear un nuevo curso' AS Error;
-		ROLLBACK TRANSACTION
+		IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
+		THROW;
 	END CATCH
 END;
 
