@@ -249,7 +249,7 @@ BEGIN
 
 		-- Insertar en la tabla TFA
 		INSERT INTO practica1.TFA (UserId, Status, LastUpdate)
-		VALUES (@UserId, 0, @GuatemalaTime);
+		VALUES (@UserId, 1, @GuatemalaTime);
 
 		SELECT 'El usuario ha sido creado' AS Success;
 
@@ -379,6 +379,12 @@ BEGIN
             BEGIN
                 THROW 50000, 'No se encuentra el estudiante', 1;
             END
+
+			-- Validación que la cuenta esté activa
+			IF NOT EXISTS (SELECT 1 FROM practica1.Usuarios WHERE Email = @Email AND EmailConfirmed = 1)
+			BEGIN
+				THROW 50000, 'La cuenta no se encuentra activa', 1;
+			END
 
             -- Validar que el curso exista
 
