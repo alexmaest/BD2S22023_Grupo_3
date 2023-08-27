@@ -502,6 +502,14 @@ BEGIN
 		DECLARE @idCurso INT;
 		DECLARE @ErrorMessage NVARCHAR(4000);
 
+		-- VALIDAR QUE EL NOMBRE SOLO TENGA LETRAS Y ESPACIOS
+		IF (@Nombre LIKE '%[^a-zA-Z ]%')
+		BEGIN
+			SET @ErrorMessage = 'ERROR// El nombre debe contener solo letras y espacios.';
+			THROW 50000, @ErrorMessage, 1;
+		END
+
+
 		-- VALIDAR QUE EL NOMBRE NO ESTE VACÍO
 		IF(@Nombre IS NULL OR @Nombre='')
 		BEGIN
@@ -560,10 +568,13 @@ BEGIN
 		FROM practica1.Usuarios
 		WHERE Firstname LIKE '%[^a-zA-Z ]%';
 
-		-- Actualizar los registros con nombres no válidos
-		UPDATE practica1.Usuarios
-		SET Firstname = practica1.RemoverDigitos(Firstname)
-		WHERE Id IN (SELECT Id FROM @InvalidUsers);
+		IF EXISTS (SELECT 1 FROM @InvalidUsers)
+		BEGIN
+			-- Actualizar los registros con nombres no válidos
+			UPDATE practica1.Usuarios
+			SET Firstname = practica1.RemoverDigitos(Firstname)
+			WHERE Id IN (SELECT Id FROM @InvalidUsers);
+		END;
 
 		-- ////////////////////////////////////////////////////////////////////////////////////
 		-- Restriccion para validar que LastName en Usuarios sean solo letras
@@ -577,10 +588,13 @@ BEGIN
 		FROM practica1.Usuarios
 		WHERE Lastname LIKE '%[^a-zA-Z ]%';
 
-		-- Actualizar los registros con nombres no válidos
-		UPDATE practica1.Usuarios
-		SET Lastname = practica1.RemoverDigitos(Lastname)
-		WHERE Id IN (SELECT Id FROM @InvalidUsers2);
+		IF EXISTS (SELECT 1 FROM @InvalidUsers2)
+		BEGIN
+			-- Actualizar los registros con nombres no válidos
+			UPDATE practica1.Usuarios
+			SET Lastname = practica1.RemoverDigitos(Lastname)
+			WHERE Id IN (SELECT Id FROM @InvalidUsers2);
+		END;
 
 		-- ////////////////////////////////////////////////////////////////////////////////////
 		-- Agregar restricción para validar que Name en Course sea solo letras
@@ -594,10 +608,13 @@ BEGIN
 		FROM practica1.Course
 		WHERE Name LIKE '%[^a-zA-Z ]%';
 
-		-- Actualizar los registros con nombres no válidos
-		UPDATE practica1.Course
-		SET Name = practica1.RemoverDigitos(Name)
-		WHERE CodCourse IN (SELECT CodCourse FROM @InvalidCourses);
+		IF EXISTS (SELECT 1 FROM @InvalidCourses)
+		BEGIN
+			-- Actualizar los registros con nombres no válidos
+			UPDATE practica1.Course
+			SET Name = practica1.RemoverDigitos(Name)
+			WHERE CodCourse IN (SELECT CodCourse FROM @InvalidCourses);
+		END;
 
 		-- ////////////////////////////////////////////////////////////////////////////////////
 		-- Agregar restricción para validar que CreditsRequired en Course sean solo números
@@ -611,10 +628,13 @@ BEGIN
 		FROM practica1.Course
 		WHERE CAST(CreditsRequired AS NVARCHAR(MAX)) LIKE '%[^0-9]%';
 
-		-- Actualizar los registros con valores no válidos (eliminar caracteres no numéricos)
-		UPDATE practica1.Course
-		SET CreditsRequired = REPLACE(CreditsRequired, SUBSTRING(CAST(CreditsRequired AS NVARCHAR(MAX)), PATINDEX('%[^0-9]%', CAST(CreditsRequired AS NVARCHAR(MAX))), 1), '')
-		WHERE CodCourse IN (SELECT CodCourse FROM @InvalidCoursesCredits);
+		IF EXISTS (SELECT 1 FROM @InvalidCoursesCredits)
+		BEGIN
+			-- Actualizar los registros con valores no válidos (eliminar caracteres no numéricos)
+			UPDATE practica1.Course
+			SET CreditsRequired = REPLACE(CreditsRequired, SUBSTRING(CAST(CreditsRequired AS NVARCHAR(MAX)), PATINDEX('%[^0-9]%', CAST(CreditsRequired AS NVARCHAR(MAX))), 1), '')
+			WHERE CodCourse IN (SELECT CodCourse FROM @InvalidCoursesCredits);
+		END;
 
 		-- ////////////////////////////////////////////////////////////////////////////////////
 
