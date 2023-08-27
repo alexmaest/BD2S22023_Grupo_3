@@ -401,6 +401,18 @@ BEGIN
                     throw 50000, N'El estudiante ya está inscrito en el curso', 1;
                 end
 
+			-- Validación que cumpla con los creditos para asignarlo
+			IF EXISTS (
+				SELECT 1
+				FROM practica1.Course AS C
+				JOIN practica1.ProfileStudent AS PS ON C.CreditsRequired >= PS.Credits
+				JOIN practica1.Usuarios AS U ON PS.UserId = U.Id
+				WHERE C.CodCourse = @CodCurse AND U.Email = @Email
+			)
+				BEGIN
+                    throw 50000, 'El usuario no cumple con los créditos requeridos para este curso', 1;
+                end
+
             -- Insertar el registro en la entidad CorseAssignment
             INSERT INTO practica1.CourseAssignment
             VALUES (@StudentId, @CodCurse);
@@ -468,7 +480,7 @@ BEGIN
             throw 50000, N'El rol ya existe.', 1;
         END
 
-        DECLARE @Id uniqueidentifier
+		DECLARE @Id NVARCHAR(36) = NEWID();
         -- Insertar el registro en la entidad Roles
         INSERT INTO practica1.Roles
         VALUES (@Id, @RoleName)
@@ -652,6 +664,8 @@ BEGIN
 		ALTER TABLE practica1.Course
 		DROP CONSTRAINT CK_course_credits_only_numbers;
 
+		SELECT 'Los datos han sido validados.' AS Success;
+
 		COMMIT TRANSACTION
 	END TRY
 	BEGIN CATCH
@@ -688,21 +702,24 @@ CREATE FUNCTION practica1.F1
 RETURNS TABLE
 AS
 RETURN
+(
     SELECT u.Id AS 'Id estudiante', u.FirstName AS 'Nombre', u.LastName AS 'Apellido', u.Email AS 'Correo'
     FROM practica1.Usuarios u
     INNER JOIN practica1.CourseAssignment ca ON u.Id = ca.StudentId
     WHERE ca.CourseCodCourse = @CodCurse
+);
 
 CREATE FUNCTION practica1.F2
-    (@IdTutorProfile INT)
+    (@IdTutorProfile NVARCHAR(MAX))
 RETURNS TABLE
 AS
 RETURN
+(
     SELECT c.CodCourse AS 'Codigo Curso', c.Name AS 'Nombre del curso', c.CreditsRequired AS 'Creditos requeridos'
     FROM practica1.Course c
     INNER JOIN practica1.CourseTutor ct ON c.CodCourse = ct.CourseCodCourse
     WHERE ct.TutorId = @IdTutorProfile
-
+);
 
 CREATE FUNCTION practica1.F3(@id UNIQUEIDENTIFIER)
 RETURNS TABLE
@@ -990,5 +1007,32 @@ BEGIN
 	SET @GuatemalaTime = SWITCHOFFSET(SYSDATETIMEOFFSET(), '-06:00');
     
     SET @Message = 'Se realizó un ' + @Operation + ' en la tabla Course';
+    INSERT INTO practica1.HistoryLog([Date], Description) VALUES(@GuatemalaTime, @Message);
+END;
+
+CREATE TRIGGER Trigger_Roles
+ON practica1.Roles
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    DECLARE @Message AS VARCHAR(MAX);
+    DECLARE @Operation AS VARCHAR(10);
+    DECLARE @TableName AS VARCHAR(MAX);
+    
+    IF EXISTS (SELECT * FROM inserted)
+    BEGIN
+        IF EXISTS (SELECT * FROM deleted)
+            SET @Operation = 'UPDATE';
+        ELSE
+            SET @Operation = 'INSERT';
+    END
+    ELSE IF EXISTS (SELECT * FROM deleted)
+        SET @Operation = 'DELETE';
+	
+	-- Configuración de fecha y hora de Guatemala
+	DECLARE @GuatemalaTime DATETIMEOFFSET;
+	SET @GuatemalaTime = SWITCHOFFSET(SYSDATETIMEOFFSET(), '-06:00');
+    
+    SET @Message = 'Se realizó un ' + @Operation + ' en la tabla Roles';
     INSERT INTO practica1.HistoryLog([Date], Description) VALUES(@GuatemalaTime, @Message);
 END;
