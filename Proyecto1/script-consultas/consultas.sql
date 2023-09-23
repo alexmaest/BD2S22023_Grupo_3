@@ -418,3 +418,37 @@ BEGIN
     END
 END;
 GO
+
+-- Consulta libre
+WITH TopJuegosPorGeneroYPlataforma AS (
+    SELECT
+        ROW_NUMBER() OVER (PARTITION BY p.Nombre, g.Tipo ORDER BY vj.Calificacion_general DESC) AS Ranking,
+        vj.Nombre AS NombreVideojuego,
+        g.Tipo AS Genero,
+        p.Nombre AS Plataforma,
+        vj.Calificacion_general AS Rating
+    FROM
+        Videojuego vj
+    INNER JOIN
+        Videojuego_Genero vjg ON vj.Id = vjg.Videojuego_Id
+    INNER JOIN
+        Genero g ON vjg.Genero_Id = g.Id
+    INNER JOIN
+        Videojuego_Plataforma vp ON vj.Id = vp.Videojuego_Id
+    INNER JOIN
+        Plataforma p ON vp.Plataforma_Id = p.Id
+)
+SELECT
+    Ranking,
+    NombreVideojuego,
+    Genero,
+    Plataforma,
+    Rating
+FROM
+    TopJuegosPorGeneroYPlataforma
+WHERE
+    Ranking = 1
+ORDER BY
+	Genero,
+    Plataforma;
+
