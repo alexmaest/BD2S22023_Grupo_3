@@ -43,13 +43,13 @@ AS
 BEGIN
     SET NOCOUNT ON;
     SELECT
-    v.Id,
-    v.Nombre AS 'Nombre del videojuego',
-    v.Descripcion AS 'Descripcion',
-    v.Fecha_lanzamiento_general AS 'Fecha de lanzamiento',
-    v.Calificacion_general AS 'Rating general',
-    v.Historia AS 'Historia',
-    p.Nombre AS 'Nombre de la Plataforma'
+        v.Id,
+        v.Nombre AS 'Nombre del videojuego',
+        v.Descripcion AS 'Descripcion',
+        MAX(v.Fecha_lanzamiento_general) AS 'Fecha de lanzamiento',
+        v.Calificacion_general AS 'Rating general',
+        v.Historia AS 'Historia',
+        p.Nombre AS 'Nombre de la Plataforma'
     FROM
         dbo.Videojuego v
     INNER JOIN
@@ -57,7 +57,14 @@ BEGIN
     INNER JOIN
         dbo.Plataforma p ON vp.Plataforma_Id = p.ID
     WHERE
-        v.Nombre LIKE '%' + (SELECT v.Nombre FROM dbo.Videojuego v WHERE v.Id = @Id) + '%';
+        v.Nombre LIKE '%' + (SELECT v.Nombre FROM dbo.Videojuego v WHERE v.Id = @Id) + '%'
+    GROUP BY
+        v.Id,
+        v.Nombre,
+        v.Descripcion,
+        v.Calificacion_general,
+        v.Historia,
+        p.Nombre
 END
 
 -- 4
