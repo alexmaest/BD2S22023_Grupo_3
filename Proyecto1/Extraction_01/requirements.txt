@@ -1,0 +1,9 @@
+certifi==2023.7.22
+charset-normalizer==3.2.0
+idna==3.4
+igdb-api-v4==0.2.0
+protobuf==4.24.2
+pyodbc==4.0.39
+python-decouple==3.8
+requests==2.31.0
+urllib3==2.0.4
