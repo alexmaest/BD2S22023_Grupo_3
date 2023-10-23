@@ -1,0 +1,23 @@
+  use("proyecto2")
+
+db.getCollection('games').aggregate([
+  {
+    $project: {
+      nombre: 1,
+      'plataformas.nombre': 1,
+      calificacion_general: 1,
+      calificacion_profesional: 1,
+      'generos.tipo_genero': 1
+    }
+  },
+  {
+    $sort: {
+      calificacion_general: -1,
+      calificacion_profesional: -1,
+      total_calificaciones: -1
+    }
+  },
+  {
+    $limit: 100
+  }
+]).toArray();
