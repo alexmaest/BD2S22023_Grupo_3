@@ -1,12 +1,19 @@
 use("proyecto2");
 
-db.getCollection('games').aggregate([
-  {
-    $match: {
-      nombre: {
-        $regex: "zelda", //agregar el nombre a buscar aqui
-        $options: "i",
+function consulta2(nombreJuego) {
+  return db.getCollection('games').aggregate([
+    {
+      $match: {
+        nombre: {
+          $regex: nombreJuego,
+          $options: "i",
+        },
       },
     },
-  },
-]).toArray();
+  ]).toArray();  
+}
+
+consulta2("zelda"); //agregar el nombre a buscar aqui
+
+//Stored procedure que reciba un parámetro alfanumérico para 
+//buscar juegos por nombre (palabras o aproximaciones). 

@@ -1,9 +1,10 @@
 use("proyecto2")
 
-  db.getCollection('genres').aggregate([
+function consulta5(nombreGenero) {
+  return db.getCollection('genres').aggregate([
     {
       $match: {
-        nombre: { $regex: 'adventure', $options: 'i' } //genero a buscar
+        nombre: { $regex: nombreGenero, $options: 'i' } //genero a buscar
       }
     },
     {
@@ -27,3 +28,9 @@ use("proyecto2")
       },
     },
   ]).toArray();
+}
+
+consulta5("adventure"); //agregar el nombre a buscar aqui
+
+//Consulta que muestre el top los juegos por genero, ordenados por 
+//rating

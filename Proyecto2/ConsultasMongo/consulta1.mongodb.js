@@ -1,6 +1,6 @@
   use("proyecto2")
 
-db.getCollection('games').aggregate([
+  db.createView("consulta1", "games", [
   {
     $project: {
       nombre: 1,
@@ -20,4 +20,10 @@ db.getCollection('games').aggregate([
   {
     $limit: 100
   }
-]).toArray();
+]);
+
+db.consulta1.find().toArray();
+
+
+//Vista que muestre el top 100 de los juegos evaluado por Rating o 
+//valoración según el sitio web. (nombre, plataforma, rating, genero

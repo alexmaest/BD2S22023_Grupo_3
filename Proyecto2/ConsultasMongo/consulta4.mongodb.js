@@ -1,5 +1,6 @@
 use("proyecto2")
-db.getCollection('games').aggregate([
+
+db.createView("consulta4", "games",[
   {
     $match: {
       idiomas: {
@@ -35,4 +36,10 @@ db.getCollection('games').aggregate([
   {
     $limit: 100,
   },
-]).toArray();
+]);
+
+db.consulta4.find().toArray();
+
+//Vista que muestre el top 100 de juegos que soporten más idiomas 
+//(subtítulos y audio) ordenados por rating, nombre y que idiomas 
+//soportan
