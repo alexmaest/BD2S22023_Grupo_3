@@ -1,0 +1,74 @@
+{
+    "_id": 1,
+    "igdb_id": 10000,
+    "nombre": "example",
+    "descripcion": "This is only a short description...",
+    "historia": "This is only a short history...",
+    "fecha_lanzamiento_general": "1990-01-12",    
+    "calificacion_general": 50,
+    "calificacion_profesional": 50,
+    "member_ratings": 50,
+    "critic_ratings": 50,
+    "total_calificaciones": 50,
+    "franquicia": "franchise example",
+    "serie": "serie example",
+    "tipo": "type example",
+    "motores": [
+        {"nombre": "motor example 1"},
+        {"nombre": "motor example 2"}
+    ],
+    "perspectivas": [
+        {"tipo": "perspective example 1"},
+        {"tipo": "perspective example 2"}
+    ],
+    "generos": [
+        {"tipo": "genre example 1"},
+        {"tipo": "genre example 2"}
+    ],
+    "temas": [
+        {"tipo": "theme example 1"},
+        {"tipo": "theme example 2"}
+    ],
+    "categorias_edad": [
+        {"tipo": "category example 1"},
+        {"tipo": "category example 2"}
+    ],
+    "empresas": [
+        {"nombre": "company example 1"},
+        {"nombre": "company example 2"}
+    ],
+    "titulo": [
+        {"nombre": "title example 1", "comentario": "This is a commentary"},
+        {"nombre": "title example 2", "comentario": "This is a commentary"}
+    ],
+    "idiomas": [
+        {"nombre": "language example 1", "implementaciones": [{"tipo": "This is a type"}, {"tipo": "This is a type"}]},
+        {"nombre": "language example 2", "implementaciones": [{"tipo": "This is a type"}]}
+    ],
+    "plataformas": [
+        {"nombre": "platform example 1","lanzamientos": [{"fecha": "2014-01-10","region": "north_america"},{"fecha": "2014-02-20","region": "north_america"}]},
+        {"nombre": "platform example 2","lanzamientos": [{"fecha": "2014-01-10","region": "worldwide"}]}
+    ]
+}
+
+{
+    "_id": 1,
+    "igdb_platform_id": 10000,
+    "nombre": "platform example",
+    "descripcion": "This is only a short description...",
+    "generacion": 1,
+    "tipo": "platform type",
+    "familia": "family type",
+    "nombre_alternativo": "alternative name",
+    "empresas": [{"nombre": "company name 1"},{"nombre": "company name 2"}],
+    "versiones": [{"nombre": "platform name 1"},{"nombre": "platform name 2"}],
+    "fechas_lanzamiento": [{"fecha": "2014-01-10","region": "north_america"},{"fecha": "2014-02-20","region": "north_america"}],
+    "juegos": [{"igdb_id": 2000, "nombre": "game name 1", "fecha": "2020-01-10", "region": 1}, {"igdb_id": 3000, "nombre": "game name 2", "fecha": "2020-01-11", "region": 2}]
+}
+
+{
+    "_id": 1,
+    "igdb_genre_id": 10000,
+    "nombre": "genre example",
+    "juegos": [{"igdb_id": 2000, "nombre": "game name 1", "calificacion_general": 100, "calificacion_profesional": 100, "plataformas": ["platform example 1","platform example 2"]}]
+}
